@@ -1,0 +1,154 @@
+---
+title: "Public Plans Database summary stats"
+author: "Don Boyd"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r runall, eval=FALSE, echo=FALSE}
+# When we want a final report, run the following code selectively "by hand" (interactively) -- NEVER using Knit with eval=TRUE
+
+rmdfn <- "./_main.rmd" # this file
+outfn <- paste0("./Results/PPDStats_", format(Sys.time(), "%Y-%m-%d"), ".html")
+rmarkdown::render(rmdfn, output_format="html_document", output_file=outfn)
+
+# Note that it is safest to fully exit RStudio and restart it before running the whole thing. Otherwise knitr can get confused
+# and include repetitive information in the output html file.
+
+ 
+```
+
+
+```{r mainSet options, echo=FALSE, cache=FALSE}
+options(width=120)
+knitr::opts_chunk$set(fig.width=14, fig.height=10, echo=FALSE)
+# Note: when saving maps (ggsave), width=16, height=9 seems to get rid of white space
+
+```
+
+
+```{r libs, message=FALSE}
+
+library("plyr") # always load BEFORE loading dplyr
+library("dplyr")
+options(dplyr.print_min = 60) # default is 10
+options(dplyr.print_max = 60) # default is 20
+library("foreign") # various import and export routines - e.g., for reading Stata files
+library("gdata") # for reading spreadsheets
+library("knitr")
+library("lubridate")
+library("ggplot2")
+library("magrittr")
+library("readr")
+library("readxl")
+library("stringr")
+library("tidyr")
+
+library("apitools")
+library("bdata")
+library("btools")
+library("pdata")
+
+# data(package="pdata")
+
+# CRR locations for CAFRs and AVs
+# http://publicplansdata.org/reports/  for all
+# http://publicplansdata.org/resources/download-avs-cafrs/  menu system
+
+
+```
+
+
+```{r defines}
+resultsdir <- "./Results/"
+
+```
+
+
+```{r findvars}
+# create a df from the ppd, with constructed vars needed for prototype analysis
+
+# start by setting up tools to find needed variables, given how many are in the ppd
+ppdvars <- ppdvars # now we can look at it in the viewer
+# glimpse(ppd)
+# names(ppd)
+findvars <- function(text) {
+  # note that there may be some discrepancies between variables found in the "variables" file
+  # and those actually in the data
+  df <- ppdvars %>% filter(grepl(text, `Variable Label`, ignore.case=TRUE) | 
+                             grepl(text, `Variable Name`, ignore.case=TRUE)) %>% 
+    select(`Variable Label`, `Variable Name`)
+  return(df)
+}
+# grep("salar", names(ppd), ignore.case=TRUE, value=TRUE) # search for variable names with desired text - use actual data file
+# temp <- findvars("salar") # now use viewer to look at temp
+# findvars("age")
+
+# summary(filter(select(ppd, fy, ActFundedRatio_GASB), fy==2013)) # look for NAs by year
+# beneficiaries_tot
+
+# get missing count by year for a single variable
+mv <- function(var) {
+  ppd %>% select(fy, one_of(var)) %>%
+    group_by(fy) %>%
+    do(qtiledf(.[[var]]))
+}
+# mv("beneficiaries_tot")
+
+# variable choices when there are multiple options (results from analysis that isn't always shown below)
+# assets: many NA for MktAssets_ActRpt; MktAssets_net looks better
+# age variables: there are many: ActiveAge_avg, BeneficiaryAge_avg, ServiceRetireeAge_avg, ServiceRetAge_avg
+#   but ALL have many missing values
+#   ActiveAge_avg has fewest missing values - 110 not NA's in the median of 2009-2013; others are much worse
+# so, do not use age in the analysis, but do look at it by cluster after plans are clustered
+
+# another way to get at this may be through pvfb
+# PVFB_active, PVFB_retiree
+# explore:
+# ppd %>% select(fy, ppd_id, contains("PVFB")) %>%
+#   gather(variable, value, -fy, -ppd_id) %>%
+#   group_by(variable, fy) %>% 
+#   mutate(value=cton(value)) %>% 
+#   do(qtiledf(.$value)) %>%
+#   data.frame
+# almost all values are missing; a few exceptions:
+#  - we have 119 non-missing PVFB-active in 2012; not really as many as I would like
+#  - PVFB-retiree is pretty good in most years, including 140 nonmissing in 2012
+# so best we could do is retire/active ratio for maybe 119 plans
+# ppd %>% mutate(rapvfb=PVFB_retiree/PVFB_active) %>%
+#   group_by(fy) %>%
+#   do(qtiledf(.$rapvfb))
+# some big differences but probably not usable in clustering
+
+# Classifiers:
+# PlanType 1-PERS or SERS, 2- TRS, 3- Police/Fire/Safety
+# AdministeringGovt  0-State, 1-County, 2-City, 5- School
+ptlevs <- c(1, 2, 3); ptlabs <- c("General emp", "Teachers", "Safety")
+adlevs <- c(0, 1, 2, 5); adlabs <- c("State", "County", "City", "School")
+
+```
+
+
+# Continuous variables
+```{r}
+# get the desired data and calc vars
+voi <- c("ActFundedRatio_GASB", "InvestmentReturnAssumption_GASB", "NormCostRate_tot", "NormCostRate_EE", "NormCostRate_ER", "ReqContRate_ER", "ReqContRate_tot", "PercentReqContPaid", "PayrollGrowthAssumption", "TotAmortPeriod", "RemainingAmortPeriod")
+
+f <- function(var) {
+  out <- ppd %>% select_("fy", var) %>%
+    group_by(fy) %>%
+    do(qtiledf(.[[var]])) %>%
+    kable(digits=4, caption=var)
+  return(out)
+}
+
+for(var in voi) print(f(var))
+
+
+```
+
+
+
