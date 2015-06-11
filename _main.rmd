@@ -135,7 +135,7 @@ adlevs <- c(0, 1, 2, 5); adlabs <- c("State", "County", "City", "School")
 # Continuous variables
 ```{r}
 # get the desired data and calc vars
-voi <- c("ActFundedRatio_GASB", "InvestmentReturnAssumption_GASB", "NormCostRate_tot", "NormCostRate_EE", "NormCostRate_ER", "ReqContRate_ER", "ReqContRate_tot", "PercentReqContPaid", "PayrollGrowthAssumption", "TotAmortPeriod", "RemainingAmortPeriod")
+voi <- c("ActFundedRatio_GASB", "InvestmentReturnAssumption_GASB", "NormCostRate_tot", "NormCostRate_EE", "NormCostRate_ER", "ReqContRate_ER", "ReqContRate_tot", "PercentReqContPaid", "PayrollGrowthAssumption", "WageInflation", "TotAmortPeriod", "RemainingAmortPeriod")
 
 f <- function(var) {
   out <- ppd %>% select_("fy", var) %>%
